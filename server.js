@@ -23,6 +23,22 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Helper function to format tasks
+function formatTasks(tasks) {
+  if (!Array.isArray(tasks)) {
+    return JSON.stringify(tasks, null, 2);
+  }
+  
+  return tasks.map((task, index) => {
+    if (typeof task === 'object' && task !== null) {
+      return `任务 ${index + 1}:\n${Object.entries(task)
+        .map(([key, value]) => `  ${key}: ${value}`)
+        .join('\n')}`;
+    }
+    return `- ${task}`;
+  }).join('\n\n');
+}
+
 // Chat endpoint
 app.post('/api/chat', async (req, res) => {
   try {
@@ -33,9 +49,7 @@ app.post('/api/chat', async (req, res) => {
     
     if (action && tasks) {
       // Convert action/tasks format to messages format
-      const taskDescription = Array.isArray(tasks) 
-        ? tasks.map(t => `- ${t}`).join('\n')
-        : tasks;
+      const taskDescription = formatTasks(tasks);
       
       chatMessages = [{
         role: 'user',
@@ -71,15 +85,12 @@ app.post('/api/chat', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error('Error calling DeepSeek API:', error.response?.data || error.message);
-    res.status(error.response?.status || 500).json({
-      error: error.response?.data?.error?.message || 'Internal server error'
+    res.status(500).json({ 
+      error: error.response?.data?.error?.message || 'Failed to call DeepSeek API' 
     });
   }
 });
 
-// Start server
 app.listen(PORT, () => {
-  console.log(`AI Server running on port ${PORT}`);
-  console.log(`DeepSeek Model: ${DEEPSEEK_MODEL}`);
-  console.log(`Allowed Origin: ${process.env.ALLOWED_ORIGIN || 'All'}`);
+  console.log(`Server running on port ${PORT}`);
 });
