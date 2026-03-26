@@ -23,20 +23,34 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Helper function to format tasks
+// Helper function to format tasks - improved version
 function formatTasks(tasks) {
-  if (!Array.isArray(tasks)) {
-    return JSON.stringify(tasks, null, 2);
+  // If tasks is an array, format each item
+  if (Array.isArray(tasks)) {
+    return tasks.map((task, index) => {
+      if (typeof task === 'object' && task !== null) {
+        return `任务 ${index + 1}:\n${Object.entries(task)
+          .map(([key, value]) => `  ${key}: ${value}`)
+          .join('\n')}`;
+      }
+      return `任务 ${index + 1}: ${task}`;
+    }).join('\n\n');
   }
   
-  return tasks.map((task, index) => {
-    if (typeof task === 'object' && task !== null) {
-      return `任务 ${index + 1}:\n${Object.entries(task)
-        .map(([key, value]) => `  ${key}: ${value}`)
-        .join('\n')}`;
-    }
-    return `- ${task}`;
-  }).join('\n\n');
+  // If tasks is an object, format it as key-value pairs
+  if (typeof tasks === 'object' && tasks !== null) {
+    return Object.entries(tasks)
+      .map(([key, value]) => {
+        if (typeof value === 'object') {
+          return `${key}:\n${JSON.stringify(value, null, 2)}`;
+        }
+        return `${key}: ${value}`;
+      })
+      .join('\n\n');
+  }
+  
+  // If tasks is a string or other type, just return it as is
+  return String(tasks);
 }
 
 // Chat endpoint
@@ -71,6 +85,7 @@ app.post('/api/chat', async (req, res) => {
       {
         model: DEEPSEEK_MODEL,
         messages: chatMessages,
+        stream: false,
         temperature: 0.7,
         max_tokens: 2000
       },
@@ -82,15 +97,25 @@ app.post('/api/chat', async (req, res) => {
       }
     );
 
-    res.json(response.data);
+    // Extract the response content
+    const content = response.data.choices[0].message.content;
+
+    // Send back as plain JSON
+    res.json({
+      success: true,
+      message: content,
+      usage: response.data.usage
+    });
+
   } catch (error) {
     console.error('Error calling DeepSeek API:', error.response?.data || error.message);
-    res.status(500).json({ 
-      error: error.response?.data?.error?.message || 'Failed to call DeepSeek API' 
+    res.status(500).json({
+      success: false,
+      error: error.response?.data?.error?.message || error.message
     });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`AI Server running on port ${PORT}`);
 });
